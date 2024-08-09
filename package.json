@@ -2,12 +2,12 @@
   "name": "backend",
   "version": "1.0.0",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "start": "nodemon index.js"
   },
   "author": "NEHA",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "bcrypt": "^5.1.1",
     "body-parser": "^1.20.2",
@@ -17,5 +17,6 @@
     "join": "^3.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.5.2"
-  }
+  },
+  "description": ""
 }
