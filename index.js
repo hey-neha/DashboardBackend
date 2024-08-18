@@ -26,18 +26,80 @@
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
+import { compare } from "bcrypt";
+import bodyParser from "body-parser";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+// import userController from "./Controllers/userController";
+
+// const multer = require("multer");
+// const path = require("path");
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-//nehayadav9450242664
-//4I17iqlXyCiHoRJD
-//mongodb+srv://<username>:<password>@cluster0.9ukqgml.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+// Create __dirname manually
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const url =
-  "mongodb+srv://manishdevloop:NIQi8aawFUjYsuSp@cluster0.mleqmvq.mongodb.net ";
+//declare the path --------------------
+
+app.use(express.static(path.resolve(__dirname, "public")));
+
+//middlewares-----------------------------------------------------------------
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "./public/uploads");
+  },
+  filename: (req, file, cb) => {
+    cb(null, file.originalname);
+  },
+});
+
+const upload = multer({ storage: storage });
+
+//controllers method ------------------------------------------
+// const userController = require("./Controllers/userController");
+
+// const importUser = async (req, res) => {
+//   try {
+//     csv()
+//       .fromFile(req.file.path)
+//       .then((response) => {
+//         /* console.log(response); */
+//       });
+
+//     res.send({ status: 400, success: true, msg: "CSV Imported!!" });
+//   } catch (error) {
+//     res.send({ status: 400, success: false, msg: error.message });
+//   }
+// };
+
+
+
+
+app.post("/importUser", upload.single("file"), (req, res) => {
+  console.log(req.file);
+  res.send("File uploaded successfully!!");
+});
+
+
+
+
+// const bodyParser = require("body-parser");
+app.use(bodyParser.json());
+
+//HeymongoDB123
+//ny8866428
+//pZn05KNItGGTcFpr
+// mongodb://127.0.0.1:27017/mydash
+
+const url = "mongodb://127.0.0.1:27017/mydash";
+// "mongodb+srv://ny8866428:HeymongoDB123@cluster0.9ukqgml.mongodb.net/mydash";
 
 const connectDB = async () => {
   try {
@@ -59,15 +121,56 @@ const userSchema = new mongoose.Schema({
 });
 const User = new mongoose.model("User", userSchema);
 
+// for data  schema --------------------------------------------
+
+const Employeeschema = new mongoose.Schema({
+  fullname: String,
+  email: String,
+  mobileNum: {
+    type: String,
+    required: true,
+    match: [/^\d{10}$/, "Please fill a valid mobile number"], // 10-digit number validation
+  },
+  dob: {
+    type: String,
+    required: true,
+  },
+});
+const Employee = new mongoose.model("Employee", Employeeschema);
+
 // Router--------------------
 
-app.post("/register", async (req, res) => {
-  const { fullname, email, password, conformedPas } = req.body;
+app.post("/login", async (req, res) => {
+  const { email, password } = req.body;
 
   try {
     //check if the user already exists---------------
     const user = await User.findOne({ email: email });
 
+    if (user) {
+      if (password === user.password) {
+        res.send({ message: "Login SuccessFull", user: user });
+      } else {
+        res.send({ message: "Password didn't match" });
+      }
+    } else {
+      res.send({ message: "User not registered!!" });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+app.post("/register", async (req, res) => {
+  const { fullname, email, password, conformedPas } = req.body;
+  console.log(fullname, email, password, conformedPas);
+
+  //validation----------------------------------------------------
+
+  try {
+    //check if the user already exists---------------
+    const user = await User.findOne({ email: email });
     if (user) {
       res.send({ message: "User already registerd!!!" });
     } else {
@@ -93,6 +196,72 @@ app.post("/register", async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+// for data ----------------------------------------
+
+app.get("/printdata", async (req, res) => {
+  try {
+    const user = await User.find({});
+    if (!user) {
+      /* res.status(400).json({ message: "user data not found" }); */
+    }
+    console.log(user);
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+});
+
+app.post("/create-employee", async (req, res) => {
+  try {
+    const { fullname, email, mobileNum, dob } = req.body;
+    if (!fullname || !email || !mobileNum || !dob) {
+      res.status(401).json({ message: "ALl field are required!!" });
+    }
+    const emp = await Employee.findOne({ email: email });
+    /* console.log(emp); */
+    if (emp) {
+      res.status(200).json({ message: "employee allready created!!!" });
+    }
+
+    //create --------
+    const employee = await Employee.create({
+      fullname,
+      email,
+      mobileNum,
+      dob,
+    });
+    const emplSAVE = await employee.save();
+
+    if (emplSAVE) {
+      res.status(200).json({ message: "Employee created!!" });
+    }
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+});
+
+// get method for create-employeee------------------------
+
+app.get("/get-employee", async (req, res) => {
+  try {
+    const employees = await Employee.find({});
+    if (!employees) {
+      res.send(400).json({ message: "Employees data not found" });
+    }
+
+    // send the employee data with a 200 status
+
+    res
+      .status(200)
+      .json({ message: "Employess data found successfuly!!", employees });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Internal Server Error!!!" });
   }
 });
 
