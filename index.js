@@ -30,7 +30,10 @@ import { compare } from "bcrypt";
 import bodyParser from "body-parser";
 import multer from "multer";
 import path from "path";
+import csvjson from "csvtojson";
+
 import { fileURLToPath } from "url";
+
 // import userController from "./Controllers/userController";
 
 // const multer = require("multer");
@@ -49,7 +52,7 @@ const __dirname = path.dirname(__filename);
 
 app.use(express.static(path.resolve(__dirname, "public")));
 
-//middlewares-----------------------------------------------------------------
+//multer------------------------------------------------------------------------------------------
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -65,30 +68,39 @@ const upload = multer({ storage: storage });
 //controllers method ------------------------------------------
 // const userController = require("./Controllers/userController");
 
-// const importUser = async (req, res) => {
-//   try {
-//     csv()
-//       .fromFile(req.file.path)
-//       .then((response) => {
-//         /* console.log(response); */
-//       });
+const importUser = async (req, res) => {
+  try {
+    // jo file save(upload) huyi hai ..usme se data lena hai --------------------------
 
-//     res.send({ status: 400, success: true, msg: "CSV Imported!!" });
-//   } catch (error) {
-//     res.send({ status: 400, success: false, msg: error.message });
-//   }
-// };
+    const userData = [];
 
+    csv()
+      .fromFile(req.file.path)
+      .then(async (response) => {
+        /*  console.log(response); */
 
+        for (let x = 0; x < response.length; x++) {
+          userData.push({
+            fullname: response[x].Name,
+            email: response[x].Emailid,
+            mobileNum: response[x].MobileNumber,
+            Dob: response[x].DOB,
+          });
+        }
+        await Employee.insertMany(userData);
+      });
 
+    res.send({ status: 200, success: true, msg: "CSV Imported!!" });
+  } catch (error) {
+    res.send({ status: 400, success: false, msg: error.message });
+  }
+};
 
 app.post("/importUser", upload.single("file"), (req, res) => {
   console.log(req.file);
-  res.send("File uploaded successfully!!");
+  console.log(req.body);
+  importUser(req, res);
 });
-
-
-
 
 // const bodyParser = require("body-parser");
 app.use(bodyParser.json());
