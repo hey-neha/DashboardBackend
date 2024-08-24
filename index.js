@@ -1,28 +1,3 @@
-// const express = require("express");
-// const app = express();
-// require("./Models/db");
-// const AuthRouter = require("./Routers/AuthRouter");
-
-// const bodyParser = require("body-parser");
-// const cors = require("cors");
-
-// const conectDB = require("./Models/db.js");
-// conectDB();
-
-// app.get("/ping", (req, res) => {
-//   res.send("PONG");
-// });
-// app.use(bodyParser.json());
-// app.use(cors());
-// //request allow to server---------------
-
-// //router--------------------------
-// app.use("/auth", AuthRouter);
-
-// app.listen(8000, () => {
-//   console.log(`server is running on port 8000`);
-// });
-
 import express from "express";
 import cors from "cors";
 import mongoose from "mongoose";
@@ -31,6 +6,9 @@ import bodyParser from "body-parser";
 import multer from "multer";
 import path from "path";
 import csvjson from "csvtojson";
+import xlsx from "xlsx";
+
+// const xlsx = require('xlsx');
 
 import { fileURLToPath } from "url";
 
@@ -68,38 +46,60 @@ const upload = multer({ storage: storage });
 //controllers method ------------------------------------------
 // const userController = require("./Controllers/userController");
 
-const importUser = async (req, res) => {
+app.post("/importUser", upload.single("file"), async (req, res) => {
   try {
     // jo file save(upload) huyi hai ..usme se data lena hai --------------------------
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ message: "No file uploaded" });
+    }
 
-    const userData = [];
+    let xlFile = xlsx.readFile(file.path, {
+      type: "binary",
+      cellDates: true,
+      cellNF: false,
+      cellText: false,
+    });
 
-    csv()
-      .fromFile(req.file.path)
-      .then(async (response) => {
-        /*  console.log(response); */
+    let sheet = xlFile.Sheets[xlFile.SheetNames[0]];
 
-        for (let x = 0; x < response.length; x++) {
-          userData.push({
-            fullname: response[x].Name,
-            email: response[x].Emailid,
-            mobileNum: response[x].MobileNumber,
-            Dob: response[x].DOB,
-          });
-        }
-        await Employee.insertMany(userData);
-      });
+    let xl_json = xlsx.utils.sheet_to_json(sheet, {
+      raw: false, // This will keep the dates as JavaScript Date objects
+    });
+    console.log(xl_json);
 
-    res.send({ status: 200, success: true, msg: "CSV Imported!!" });
+    // {
+    //   'Sr.No ': '76',
+    //   'Name ': 'Sharvan  Vaishnav',
+    //   'Mobile  Number': '9950891784',
+    //   'DOB ': '10/8/00',
+    //   'Qualification ': '10th',
+    //   'Email Id ': 'sharavanvaishanav830@gmail.com',
+    //   'Intrested  ': 'Yes ',
+    //   'Remark ': 'SMG ST'
+    // },
+
+    const Tabledata = xl_json.map((data) => {
+      return {
+        fullname: data["Name "],
+        mobileNum: data["Mobile  Number"],
+        altmobileNum: data["Alt Number "],
+        dob: data["DOB "],
+        qualification: data["Qualification "],
+        email: data["Email Id "],
+        intrested: data["Intrested  "],
+        remark: data["Remark "],
+      };
+    });
+    console.log(Tabledata);
+
+    const result = await Employee.insertMany(Tabledata);
+    console.log("--------------------------", result);
+
+    res.send({ status: 200, success: true, msg: "CSV Imported!!", result });
   } catch (error) {
     res.send({ status: 400, success: false, msg: error.message });
   }
-};
-
-app.post("/importUser", upload.single("file"), (req, res) => {
-  console.log(req.file);
-  console.log(req.body);
-  importUser(req, res);
 });
 
 // const bodyParser = require("body-parser");
@@ -137,16 +137,24 @@ const User = new mongoose.model("User", userSchema);
 
 const Employeeschema = new mongoose.Schema({
   fullname: String,
-  email: String,
   mobileNum: {
     type: String,
     required: true,
     match: [/^\d{10}$/, "Please fill a valid mobile number"], // 10-digit number validation
   },
+  altmobileNum: {
+    type: String,
+    required: true,
+    match: [/^\d{10}$/, "Please fill a valid mobile number"], // 10-digit number valida
+  },
   dob: {
     type: String,
     required: true,
   },
+  qualification: String,
+  email: String,
+  intrested: String,
+  remark: String,
 });
 const Employee = new mongoose.model("Employee", Employeeschema);
 
@@ -226,34 +234,65 @@ app.get("/printdata", async (req, res) => {
   }
 });
 
+// fullname,
+// email,
+// mobileNum,
+// qualification,
+// intrested,
+// remark,
+// dob,
+
 app.post("/create-employee", async (req, res) => {
   try {
-    const { fullname, email, mobileNum, dob } = req.body;
-    if (!fullname || !email || !mobileNum || !dob) {
-      res.status(401).json({ message: "ALl field are required!!" });
+    const {
+      fullname,
+      email,
+      mobileNum,
+      altmobileNum,
+      qualification,
+      intrested,
+      remark,
+      dob,
+    } = req.body;
+    if (
+      !fullname ||
+      !email ||
+      !mobileNum ||
+      !altmobileNum ||
+      !dob ||
+      !qualification ||
+      !intrested ||
+      !remark
+    ) {
+      return res.status(401).json({ message: "ALl field are required!!" });
     }
     const emp = await Employee.findOne({ email: email });
     /* console.log(emp); */
     if (emp) {
-      res.status(200).json({ message: "employee allready created!!!" });
+      return res.status(200).json({ message: "employee allready created!!!" });
     }
-
     //create --------
-    const employee = await Employee.create({
+    const employ = await Employee.create({
       fullname,
-      email,
       mobileNum,
+      altmobileNum,
       dob,
+      qualification,
+      email,
+      intrested,
+      remark,
     });
-    const emplSAVE = await employee.save();
 
+    const emplSAVE = await employ.save();
+    /*   console.log(emplSAVE); */
     if (emplSAVE) {
       res.status(200).json({ message: "Employee created!!" });
     }
   } catch (error) {
-    res
+    console.log(error);
+    return res
       .status(500)
-      .json({ message: "Internal server error", error: error.message });
+      .send({ message: "Internal server error", error: error.message });
   }
 });
 
